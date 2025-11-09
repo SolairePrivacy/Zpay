@@ -18,6 +18,14 @@ ZPay is built using **Next.js** for both frontend and backend logic, with a **se
 - **Zcash Integration:** `lightwalletd` or `zcashd` RPC  
 - **Solana Integration:** `@solana/web3.js` for wallet & transaction control  
 
+### Environment Configuration
+- `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`
+- `ZCASH_RPC_URL`, `ZCASH_RPC_USERNAME`, `ZCASH_RPC_PASSWORD`
+- `FLASHIFT_API_KEY`, `FLASHIFT_API_BASE_URL`, `FLASHIFT_PROVIDER_NAME`
+- `SOLANA_RPC_URL`, `SOLANA_CUSTODIAL_PRIVATE_KEY`
+- `UPSTASH_KAFKA_REST_URL`, `UPSTASH_KAFKA_REST_USERNAME`, `UPSTASH_KAFKA_REST_PASSWORD`, `UPSTASH_KAFKA_TOPIC`
+- `MERCHANT_WEBHOOK_URL`, `MERCHANT_WEBHOOK_SECRET` (optional)
+
 ---
 
 ## Payment Flow — Zcash → Solana
@@ -32,16 +40,12 @@ ZPay is built using **Next.js** for both frontend and backend logic, with a **se
    - Once the expected payment is detected and confirmed, the session is updated to `confirmed`.  
 
 3. **Solana Execution**  
-   - Upon confirmation, ZPay triggers a **Solana transaction** from a custodial wallet.  
-   - Supported actions include:
-     - Sending SOL or SPL tokens  
-     - Buying and Selling Tokens
-     - Invoking on-chain programs  
-   - Both the Zcash and Solana transaction hashes are stored and exposed via API.  
+   - Upon confirmation, ZPay calls Flashift `createTransaction` to deliver SOL to the destination wallet.  
+   - The Flashift order id, deposit address, and Solana transaction hash are written back to the session.  
 
 4. **User Feedback**  
-   - The frontend UI polls `/api/payments/status/:id` to show live updates.  
-   - Once complete, the user sees a success screen with linked transaction hashes (Zcash + Solscan).
+   - Checkout UI receives live status via Kafka-backed Server Sent Events with Redis polling as a fallback.  
+   - Once complete, users see linked hashes for Zcash, Flashift, and Solana.
 
 ---
 
@@ -60,8 +64,10 @@ ZPay is built using **Next.js** for both frontend and backend logic, with a **se
 
 ### **Developer API**
 - `POST /api/payments/create` → start new session  
-- `GET /api/payments/status/:id` → poll session state  
+- `GET /api/payments/status/:id` → resolve session state (SSE auto-updates supported)  
 - `GET /api/payments/list` → list all sessions (merchant view)  
+- `GET /api/payments/events` → Kafka-backed SSE stream for push updates  
+- `POST /api/payments/cron` → trigger settlement worker (for scheduled jobs)  
 
 ---
 
