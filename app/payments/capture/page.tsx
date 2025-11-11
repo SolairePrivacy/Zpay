@@ -7,22 +7,20 @@ type Session = {
   id: string;
   zcashAddress: string;
   amountZec: number;
+  confirmationsRequired: number;
   status: string;
-  zcashTxId?: string;
-  solanaTxId?: string;
-  bridgerTransactionId?: string;
-  bridgerDepositAddress?: string;
   createdAt: string;
   updatedAt: string;
+  zcashTxId?: string;
   errorReason?: string;
 };
 
 const statusLabels: Record<string, string> = {
   pending: "Awaiting Zcash deposit",
-  confirmed: "Zcash confirmed, executing Bridger swap",
-  executed: "Solana transaction completed",
+  confirmed: "Zcash confirmed, finalizing capture",
+  executed: "Capture completed",
   expired: "Session expired",
-  failed: "Execution failed",
+  failed: "Capture failed",
 };
 
 function formatDate(value: string) {
@@ -32,38 +30,23 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-function lamportsFromSol(solAmount: number) {
-  return Math.round(solAmount * 1_000_000_000);
-}
-
-export default function CheckoutPage() {
+export default function CapturePage() {
   const [amountZec, setAmountZec] = useState("1.0");
-  const [solAmount, setSolAmount] = useState("0.4");
-  const [destination, setDestination] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [qr, setQr] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sseActive, setSseActive] = useState(false);
 
   const canSubmit = useMemo(() => {
     const amount = Number(amountZec);
-    const sol = Number(solAmount);
-    return (
-      !isLoading &&
-      destination.length > 0 &&
-      Number.isFinite(amount) &&
-      amount > 0 &&
-      Number.isFinite(sol) &&
-      sol > 0
-    );
-  }, [amountZec, destination.length, isLoading, solAmount]);
+    return !isLoading && Number.isFinite(amount) && amount > 0;
+  }, [amountZec, isLoading]);
 
   const createSession = useCallback(async () => {
-    const zec = Number(amountZec);
-    const sol = Number(solAmount);
     if (!canSubmit) return;
 
+    const zecAmount = Number(amountZec);
     setIsLoading(true);
     setError(null);
     try {
@@ -73,17 +56,15 @@ export default function CheckoutPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          amountZec: zec,
+          amountZec: zecAmount,
           targetAction: {
-            type: "send_sol",
-            destination,
-            lamports: lamportsFromSol(sol),
+            type: "record_only",
           },
         }),
       });
       if (!response.ok) {
         const data = await response.json().catch(() => null);
-        throw new Error(data?.message ?? "Failed to create session");
+        throw new Error(data?.message ?? "Failed to create capture session");
       }
       const created = (await response.json()) as Session;
       setSession(created);
@@ -92,7 +73,7 @@ export default function CheckoutPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [amountZec, canSubmit, destination, solAmount]);
+  }, [amountZec, canSubmit]);
 
   useEffect(() => {
     if (!session?.zcashAddress) {
@@ -142,7 +123,6 @@ export default function CheckoutPage() {
         if (!data || data.sessionId !== session.id || !data.payload) {
           return;
         }
-
         setSession(data.payload);
       } catch {
         return;
@@ -187,17 +167,17 @@ export default function CheckoutPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto flex max-w-5xl flex-col gap-16 px-6 py-16">
+      <div className="mx-auto flex max-w-4xl flex-col gap-12 px-6 py-16">
         <header className="space-y-3">
-          <p className="text-xs uppercase tracking-[0.3em] text-emerald-200">Checkout</p>
-          <h1 className="text-3xl font-semibold">Pay with Zcash, settle on Solana</h1>
+          <p className="text-xs uppercase tracking-[0.3em] text-emerald-200">Capture Test</p>
+          <h1 className="text-3xl font-semibold">Verify Zcash detection and settlement lifecycle</h1>
           <p className="max-w-2xl text-sm text-white/70">
-            Generate a session, deposit shielded ZEC, and watch Bridger trigger your Solana transfer
-            as soon as confirmations land.
+            Spin up a capture-only payment session, send ZEC to the provided shielded address, and watch
+            the status progress through confirmation and completion.
           </p>
         </header>
 
-        <section className="grid gap-10 md:grid-cols-[0.9fr,1.1fr]">
+        <section className="grid gap-10 lg:grid-cols-[0.85fr,1.15fr]">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-8">
             <div className="space-y-6">
               <div>
@@ -213,46 +193,35 @@ export default function CheckoutPage() {
                   className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm focus:border-emerald-300 focus:outline-none"
                 />
               </div>
-              <div>
-                <label className="mb-2 block text-xs uppercase tracking-[0.3em] text-white/60">
-                  SOL Amount
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={solAmount}
-                  onChange={(event) => setSolAmount(event.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm focus:border-emerald-300 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="mb-2 block text-xs uppercase tracking-[0.3em] text-white/60">
-                  Destination SOL Address
-                </label>
-                <input
-                  value={destination}
-                  onChange={(event) => setDestination(event.target.value)}
-                  placeholder="Enter destination wallet"
-                  className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm focus:border-emerald-300 focus:outline-none"
-                />
-              </div>
               <button
                 type="button"
                 onClick={createSession}
                 disabled={!canSubmit}
                 className="w-full rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-white/90 disabled:cursor-not-allowed disabled:bg-white/30 disabled:text-white/60"
               >
-                {isLoading ? "Creating Session..." : "Generate Payment Session"}
+                {isLoading ? "Creating capture session..." : "Generate capture session"}
               </button>
               {error && <p className="text-sm text-rose-300">{error}</p>}
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-xs text-white/70">
+                <div className="font-semibold uppercase tracking-[0.2em] text-white/60">How it works</div>
+                <ul className="mt-3 space-y-2 list-disc pl-4">
+                  <li>Create a session to allocate a shielded address from your configured pool.</li>
+                  <li>Send at least the specified ZEC amount to the address.</li>
+                  <li>
+                    The watcher marks the session complete once it observes{" "}
+                    {session?.confirmationsRequired ?? "the required"} confirmations.
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
 
           <div className="rounded-3xl border border-emerald-400/30 bg-emerald-400/5 p-8">
             {!session && (
               <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-                <p className="text-sm text-white/70">Session details will appear here once generated.</p>
+                <p className="text-sm text-white/70">
+                  Generate a capture session to receive a shielded address and live status updates.
+                </p>
               </div>
             )}
             {session && (
@@ -267,7 +236,7 @@ export default function CheckoutPage() {
                   )}
                   <div className="space-y-3 text-sm">
                     <div>
-                      <div className="text-white/60">Session ID</div>
+                      <div className="text-white/60">Capture Session</div>
                       <div className="break-all font-mono text-xs text-white/80">{session.id}</div>
                     </div>
                     <div>
@@ -280,6 +249,12 @@ export default function CheckoutPage() {
                       <div className="text-white/60">Status</div>
                       <div className="text-sm font-medium text-emerald-200">{status}</div>
                     </div>
+                    <div className="text-white/60">
+                      Required confirmations:{" "}
+                      <span className="font-medium text-emerald-200">
+                        {session.confirmationsRequired}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -291,6 +266,10 @@ export default function CheckoutPage() {
                   <div className="flex justify-between">
                     <span>Updated</span>
                     <span>{formatDate(session.updatedAt)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Amount</span>
+                    <span>{session.amountZec.toFixed(4)} ZEC</span>
                   </div>
                   {session.zcashTxId && (
                     <div className="break-all">
@@ -305,36 +284,11 @@ export default function CheckoutPage() {
                       </a>
                     </div>
                   )}
-                  {session.solanaTxId && (
-                    <div className="break-all">
-                      <div className="text-white/60">Solana Tx</div>
-                      <a
-                        href={`https://solscan.io/tx/${session.solanaTxId}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-emerald-200 underline underline-offset-2"
-                      >
-                        {session.solanaTxId}
-                      </a>
-                    </div>
-                  )}
-                  {session.bridgerTransactionId && (
-                    <div className="break-all">
-                      <div className="text-white/60">Bridger Order</div>
-                      <div className="font-mono text-emerald-200">{session.bridgerTransactionId}</div>
-                    </div>
-                  )}
-                  {session.bridgerDepositAddress && (
-                    <div className="break-all">
-                      <div className="text-white/60">Bridger Deposit Address</div>
-                      <div className="font-mono text-emerald-200">{session.bridgerDepositAddress}</div>
-                    </div>
-                  )}
                   {session.status === "failed" && (
                     <div className="text-rose-300">
                       {session.errorReason
                         ? `Failure: ${session.errorReason}`
-                        : "Reach out to support to retry this payment."}
+                        : "Reach out to support to retry this capture."}
                     </div>
                   )}
                 </div>
@@ -346,4 +300,5 @@ export default function CheckoutPage() {
     </div>
   );
 }
+
 

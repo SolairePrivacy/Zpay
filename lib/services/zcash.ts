@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import axios from "axios";
+import type { AxiosRequestConfig } from "axios";
 import { env } from "../env";
 import { logger } from "../logger";
 import { PaymentSession } from "../domain/payment";
+import { getRedis } from "../redis";
 
 interface RpcRequest {
   jsonrpc: "2.0";
@@ -20,6 +22,8 @@ interface RpcResponse<T> {
   };
   id: string;
 }
+
+const ADDRESS_INDEX_KEY = "zcash:address_pool:index";
 
 async function rpcCall<T>(method: string, params: unknown[] = []): Promise<T> {
   const request: RpcRequest = {
@@ -69,8 +73,22 @@ async function rpcCall<T>(method: string, params: unknown[] = []): Promise<T> {
   }
 
   try {
+    // const endpoint = `${env.ZCASH_RPC_URL.replace(/\/$/, "")}/${env.GETBLOCK_API_KEY}/`;
+    const endpoint = `${env.ZCASH_RPC_URL}`;
+
+    const config: AxiosRequestConfig = {
+      timeout: 15_000,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      auth: {
+        username: env.ZCASH_RPC_USERNAME ?? "",
+        password: env.ZCASH_RPC_PASSWORD ?? "",
+      },
+    };
+
     const response = await axios.post<RpcResponse<T>>(
-      env.ZCASH_RPC_URL,
+      endpoint,
       request,
       axiosConfig
     );
@@ -83,13 +101,75 @@ async function rpcCall<T>(method: string, params: unknown[] = []): Promise<T> {
 
     return response.data.result;
   } catch (error) {
-    console.error(JSON.stringify(error, null, 2));
+    logger.error({ error, rpcMethod: method }, "Failed to execute Zcash RPC call");
+    throw error;
+  }
+}
+
+
+
+async function rpcNowNodesCall<T>(method: string, params: unknown[] = []): Promise<T> {
+  const request: RpcRequest = {
+    jsonrpc: "2.0",
+    id: randomUUID(),
+    method,
+    params,
+  };
+
+  const axiosConfig: {
+    auth?:
+      | {
+          username: string;
+          password: string;
+        }
+      | undefined;
+    timeout: number;
+  } = {
+    auth: {
+      username: env.ZCASH_RPC_USERNAME ?? "",
+    password: env.ZCASH_RPC_PASSWORD ?? ""
+    },
+    timeout: 15_000,
+  };
+
+  try {
+    const endpoint = `${env.ZCASH_GETNODES_RPC_URL}`;
+
+    const response = await axios.post<RpcResponse<T>>(
+      endpoint,
+      request,
+      axiosConfig
+    );
+
+    if (response.data.error) {
+      throw new Error(
+        `Zcash RPC error: ${response.data.error.code} ${response.data.error.message}`
+      );
+    }
+
+    return response.data.result;
+  } catch (error) {
+    logger.error({ error, rpcMethod: method }, "Failed to execute Zcash RPC call");
     throw error;
   }
 }
 
 export async function generateShieldedAddress(): Promise<string> {
-  return rpcCall<string>("z_getnewaccount", ["sapling"]);
+  const addresses = ["t1Q23456789012345678901234567890123456789"];
+  if (!addresses || addresses.length === 0) {
+    throw new Error("ZCASH_SHIELDED_ADDRESSES is not configured");
+  }
+
+  try {
+    const redis = getRedis();
+    const nextIndex = await redis.incr(ADDRESS_INDEX_KEY);
+    const normalizedIndex = (nextIndex - 1) % addresses.length;
+    return addresses[normalizedIndex] ?? addresses[0];
+  } catch (error) {
+    logger.warn({ error }, "Falling back to in-memory Zcash address allocation");
+    const randomIndex = Math.floor(Math.random() * addresses.length);
+    return addresses[randomIndex];
+  }
 }
 
 interface ReceivedTransaction {
@@ -113,7 +193,10 @@ export async function detectPayment(
     [session.zcashAddress, env.PAYMENT_CONFIRMATIONS_REQUIRED]
   );
 
-  console.log(JSON.stringify(result, null, 2));
+  logger.debug(
+    { sessionId: session.id, transactions: result },
+    "Zcash RPC payment detection result"
+  );
 
   const match = result.find(
     (tx) =>
@@ -130,4 +213,8 @@ export async function detectPayment(
     txId: match.txid,
     confirmations: match.confirmations,
   };
+}
+
+export async function getZcashBlockCount(): Promise<number> {
+  return rpcCall<number>("getblockcount");
 }

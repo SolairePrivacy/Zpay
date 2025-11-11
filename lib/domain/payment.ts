@@ -2,6 +2,9 @@ import { z } from "zod";
 
 export const SolanaActionSchema = z.discriminatedUnion("type", [
   z.object({
+    type: z.literal("record_only"),
+  }),
+  z.object({
     type: z.literal("send_sol"),
     destination: z.string().min(1, "Destination address is required"),
     lamports: z.coerce.number().int().positive(),
@@ -56,8 +59,8 @@ export const PaymentSessionSchema = z.object({
   expiresAt: z.string(),
   zcashTxId: z.string().optional(),
   solanaTxId: z.string().optional(),
-  flashiftTransactionId: z.string().optional(),
-  flashiftDepositAddress: z.string().optional(),
+  bridgerTransactionId: z.string().optional(),
+  bridgerDepositAddress: z.string().optional(),
   errorReason: z.string().optional(),
 });
 

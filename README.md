@@ -24,8 +24,9 @@ ZPay is built using **Next.js** for both frontend and backend logic, with a **se
 - `ZCASH_RPC_USERNAME`, `ZCASH_RPC_PASSWORD` (optional – basic auth for `zcashd`-style nodes)
 - `ZCASH_RPC_COOKIE_PATH` (optional – cookie auth for Zebra)
 - `FLASHIFT_API_KEY`, `FLASHIFT_API_BASE_URL`, `FLASHIFT_PROVIDER_NAME`
+- `BRIDGER_API_KEY`, `BRIDGER_API_BASE_URL`, `BRIDGER_PROVIDER_NAME`
 - `SOLANA_RPC_URL`, `SOLANA_CUSTODIAL_PRIVATE_KEY`
-- `UPSTASH_KAFKA_REST_URL`, `UPSTASH_KAFKA_REST_USERNAME`, `UPSTASH_KAFKA_REST_PASSWORD`, `UPSTASH_KAFKA_TOPIC`
+- `QSTASH_URL`, `QSTASH_TOKEN`, `QSTASH_TOPIC` (optional; enables async fan-out)
 - `MERCHANT_WEBHOOK_URL`, `MERCHANT_WEBHOOK_SECRET` (optional)
 
 ### Running a Local Zebra Node
@@ -53,12 +54,12 @@ The compose service exposes both RPC (`8232`) and P2P (`8233`) ports and persist
    - Once the expected payment is detected and confirmed, the session is updated to `confirmed`.  
 
 3. **Solana Execution**  
-   - Upon confirmation, ZPay calls Flashift `createTransaction` to deliver SOL to the destination wallet.  
-   - The Flashift order id, deposit address, and Solana transaction hash are written back to the session.  
+   - Upon confirmation, ZPay calls Bridger `createTransaction` to deliver SOL to the destination wallet.  
+   - The Bridger order id, deposit address, and Solana transaction hash are written back to the session.  
 
 4. **User Feedback**  
-   - Checkout UI receives live status via Kafka-backed Server Sent Events with Redis polling as a fallback.  
-   - Once complete, users see linked hashes for Zcash, Flashift, and Solana.
+   - Checkout UI receives live status via Server Sent Events when enabled; otherwise it falls back to periodic REST polling.  
+   - Once complete, users see linked hashes for Zcash, Bridger, and Solana.
 
 ---
 
@@ -79,7 +80,7 @@ The compose service exposes both RPC (`8232`) and P2P (`8233`) ports and persist
 - `POST /api/payments/create` → start new session  
 - `GET /api/payments/status/:id` → resolve session state (SSE auto-updates supported)  
 - `GET /api/payments/list` → list all sessions (merchant view)  
-- `GET /api/payments/events` → Kafka-backed SSE stream for push updates  
+- `GET /api/payments/events` → SSE endpoint (returns 501/503 when realtime streaming is disabled)  
 - `POST /api/payments/cron` → trigger settlement worker (for scheduled jobs)  
 
 ---
@@ -113,7 +114,7 @@ The MVP launch will include:
 ## Future Plans & Stretch Goals
 
 ### **Short-Term Enhancements**
-- Integrate **Upstash Kafka** for event-driven updates (no polling)  
+- Configure **Upstash QStash** to push payment events to downstream consumers
 - Add webhook callbacks for merchant automation  
 - Introduce multiple Solana actions (swap, stake, join DAO)  
 - Implement API authentication via JWT or merchant keys  

@@ -20,6 +20,7 @@ const envSchema = z
         message: "PAYMENT_CONFIRMATIONS_REQUIRED must be an integer >= 1",
       }),
     ZCASH_RPC_URL: z.string().url(),
+    ZCASH_GETNODES_RPC_URL: z.string().url(),
     ZCASH_RPC_USERNAME: z.string().min(1).optional(),
     ZCASH_RPC_PASSWORD: z.string().min(1).optional(),
     ZCASH_RPC_COOKIE_PATH: z.string().min(1).optional(),
@@ -28,23 +29,6 @@ const envSchema = z
     SOLANA_DEFAULT_COMMITMENT: z
       .enum(["processed", "confirmed", "finalized"])
       .default("confirmed"),
-    FLASHIFT_API_BASE_URL: z
-      .string()
-      .url()
-      .default("https://interface.flashift.app/api/dev/v1"),
-    FLASHIFT_API_KEY: z.string().min(1),
-    FLASHIFT_PROVIDER_NAME: z.string().default("Exolix"),
-    FLASHIFT_FIXED_RATE: z
-      .string()
-      .optional()
-      .transform((val) => (val ? val.toLowerCase() === "true" : false)),
-    FLASHIFT_TIMEOUT_MS: z
-      .string()
-      .optional()
-      .transform((val) => (val ? Number.parseInt(val, 10) : 20000))
-      .refine((val) => Number.isFinite(val) && val > 0, {
-        message: "FLASHIFT_TIMEOUT_MS must be a positive integer",
-      }),
     UPSTASH_KAFKA_REST_URL: z.string().url().optional(),
     UPSTASH_KAFKA_REST_USERNAME: z.string().optional(),
     UPSTASH_KAFKA_REST_PASSWORD: z.string().optional(),
@@ -92,21 +76,20 @@ const parsed = envSchema.safeParse({
   ZCASH_RPC_URL: process.env.ZCASH_RPC_URL,
   ZCASH_RPC_USERNAME: process.env.ZCASH_RPC_USERNAME,
   ZCASH_RPC_PASSWORD: process.env.ZCASH_RPC_PASSWORD,
+  ZCASH_GETNODES_RPC_URL: process.env.ZCASH_GETNODES_RPC_URL,
   ZCASH_RPC_COOKIE_PATH: process.env.ZCASH_RPC_COOKIE_PATH,
   SOLANA_RPC_URL: process.env.SOLANA_RPC_URL,
   SOLANA_CUSTODIAL_PRIVATE_KEY: process.env.SOLANA_CUSTODIAL_PRIVATE_KEY,
   SOLANA_DEFAULT_COMMITMENT: process.env.SOLANA_DEFAULT_COMMITMENT,
-  FLASHIFT_API_BASE_URL: process.env.FLASHIFT_API_BASE_URL,
-  FLASHIFT_API_KEY: process.env.FLASHIFT_API_KEY,
-  FLASHIFT_PROVIDER_NAME: process.env.FLASHIFT_PROVIDER_NAME,
-  FLASHIFT_FIXED_RATE: process.env.FLASHIFT_FIXED_RATE,
-  FLASHIFT_TIMEOUT_MS: process.env.FLASHIFT_TIMEOUT_MS,
-  UPSTASH_KAFKA_REST_URL: process.env.UPSTASH_KAFKA_REST_URL,
-  UPSTASH_KAFKA_REST_USERNAME: process.env.UPSTASH_KAFKA_REST_USERNAME,
-  UPSTASH_KAFKA_REST_PASSWORD: process.env.UPSTASH_KAFKA_REST_PASSWORD,
-  UPSTASH_KAFKA_TOPIC: process.env.UPSTASH_KAFKA_TOPIC,
-  UPSTASH_KAFKA_CONSUMER_GROUP: process.env.UPSTASH_KAFKA_CONSUMER_GROUP,
-  UPSTASH_KAFKA_CONSUMER_TIMEOUT_MS: process.env.UPSTASH_KAFKA_CONSUMER_TIMEOUT_MS,
+  BRIDGER_API_BASE_URL: process.env.BRIDGER_API_BASE_URL,
+  BRIDGER_API_KEY: process.env.BRIDGER_API_KEY,
+  BRIDGER_PROVIDER_NAME: process.env.BRIDGER_PROVIDER_NAME,
+  BRIDGER_FIXED_RATE: process.env.BRIDGER_FIXED_RATE,
+  BRIDGER_TIMEOUT_MS: process.env.BRIDGER_TIMEOUT_MS,
+  QSTASH_URL: process.env.QSTASH_URL,
+  QSTASH_TOKEN: process.env.QSTASH_TOKEN,
+  QSTASH_TOPIC: process.env.QSTASH_TOPIC,
+  QSTASH_TIMEOUT_MS: process.env.QSTASH_TIMEOUT_MS,
   MERCHANT_WEBHOOK_URL: process.env.MERCHANT_WEBHOOK_URL,
   MERCHANT_WEBHOOK_SECRET: process.env.MERCHANT_WEBHOOK_SECRET,
 });

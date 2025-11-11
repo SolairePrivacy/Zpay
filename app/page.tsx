@@ -21,11 +21,11 @@ const features = [
 const timeline = [
   {
     title: "MVP Launch",
-    detail: "Zcash payment detection, Flashift-powered SOL execution, live checkout UI, merchant log view.",
+    detail: "Zcash payment detection, Bridger-powered SOL execution, live checkout UI, merchant log view.",
   },
   {
     title: "Realtime Signals",
-    detail: "Upstash Kafka fan-out, webhook subscriptions, programmable merchant automations.",
+    detail: "Upstash QStash fan-out, webhook subscriptions, programmable merchant automations.",
   },
   {
     title: "Trust-Minimized Futures",
@@ -43,11 +43,11 @@ export default function Home() {
             <Link href="/payments/checkout" className="transition hover:text-white">
               Checkout Demo
             </Link>
+            <Link href="/payments/capture" className="transition hover:text-white">
+              Capture Test
+            </Link>
             <Link href="/merchant" className="transition hover:text-white">
               Merchant Console
-            </Link>
-            <Link href="https://docs.flashift.app/" target="_blank" className="transition hover:text-white">
-              Flashift Docs
             </Link>
           </nav>
         </div>
@@ -91,9 +91,7 @@ export default function Home() {
                   1. Merchant creates a payment session via AWS Amplify edge API backed by Upstash Redis.
                 </p>
                 <p>2. Zcash watchdog confirms shielded transfer via lightwalletd.</p>
-                <p>
-                  3. Flashift executes the SOL delivery to the destination address, completing the loop.
-                </p>
+                <p>3. Bridger executes the SOL delivery to the destination address, completing the loop.</p>
               </div>
             </div>
           </div>

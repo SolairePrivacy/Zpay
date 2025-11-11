@@ -12,7 +12,7 @@ import {
   getPendingSessionIds,
 } from "../redis";
 import { detectPayment, generateShieldedAddress } from "./zcash";
-import { createFlashiftSwap } from "./solana";
+import { createBridgerSwap } from "./bridger";
 import { publishPaymentEvent } from "./events";
 import { sendMerchantWebhook } from "./webhooks";
 
@@ -99,7 +99,7 @@ async function markSessionExecuted(
 
 function getTargetAmountInSol(action: SolanaAction): string {
   if (action.type !== "send_sol") {
-    throw new Error(`Unsupported action for Flashift integration: ${action.type}`);
+    throw new Error(`Unsupported action for Bridger integration: ${action.type}`);
   }
   const solAmount = action.lamports / 1_000_000_000;
   return solAmount.toString();
@@ -138,8 +138,7 @@ export async function processPendingSessions(): Promise<void> {
         }));
         await fanOut("payment.confirmed", confirmed);
       } catch (error) {
-        logger.error({ sessionId: id, error }, "Zcash detection failed");
-        await markSessionFailed(id, "zcash_detection_failed");
+        logger.error({ sessionId: id, error }, "Zcash detection encountered an error");
         continue;
       }
     }
@@ -149,13 +148,23 @@ export async function processPendingSessions(): Promise<void> {
       continue;
     }
 
-    if (confirmed.solanaTxId || confirmed.flashiftTransactionId) {
+    if (confirmed.targetAction.type === "record_only") {
+      await markSessionExecuted(id, {});
+      continue;
+    }
+
+    if (confirmed.solanaTxId || confirmed.bridgerTransactionId) {
+      continue;
+    }
+
+    if (confirmed.targetAction.type !== "send_sol") {
+      await markSessionFailed(id, "unsupported_target_action");
       continue;
     }
 
     try {
       const amount = getTargetAmountInSol(confirmed.targetAction);
-      const transaction = await createFlashiftSwap({
+      const transaction = await createBridgerSwap({
         currencyFrom: "zec",
         currencyTo: "sol",
         amount,
@@ -165,12 +174,12 @@ export async function processPendingSessions(): Promise<void> {
 
       await markSessionExecuted(id, {
         solanaTxId: transaction.txTo,
-        flashiftTransactionId: transaction.id,
-        flashiftDepositAddress: transaction.depositAddress,
+        bridgerTransactionId: transaction.id,
+        bridgerDepositAddress: transaction.depositAddress,
       });
     } catch (error) {
-      logger.error({ sessionId: id, error }, "Flashift execution failed");
-      await markSessionFailed(id, "flashift_execution_failed");
+      logger.error({ sessionId: id, error }, "Bridger execution failed");
+      await markSessionFailed(id, "bridger_execution_failed");
     }
   }
 }

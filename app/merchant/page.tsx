@@ -9,7 +9,7 @@ type Session = {
   targetAction: { type: string; destination?: string };
   zcashTxId?: string;
   solanaTxId?: string;
-  flashiftTransactionId?: string;
+  bridgerTransactionId?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -80,13 +80,14 @@ export default function MerchantPage() {
         if (!data.payload) {
           return;
         }
+        const payload = data.payload;
         setSessions((prev) => {
           const next = [...prev];
           const index = next.findIndex((item) => item.id === data.sessionId);
           if (index === -1) {
-            next.unshift(data.payload);
+            next.unshift(payload);
           } else {
-            next[index] = data.payload;
+            next[index] = payload;
           }
           return next.sort(
             (a, b) =>
@@ -122,7 +123,7 @@ export default function MerchantPage() {
       "destination",
       "zcashTxId",
       "solanaTxId",
-      "flashiftTransactionId",
+      "bridgerTransactionId",
       "createdAt",
       "updatedAt",
     ];
@@ -134,7 +135,7 @@ export default function MerchantPage() {
       session.targetAction?.destination ?? "",
       session.zcashTxId ?? "",
       session.solanaTxId ?? "",
-      session.flashiftTransactionId ?? "",
+      session.bridgerTransactionId ?? "",
       session.createdAt,
       session.updatedAt,
     ]);
