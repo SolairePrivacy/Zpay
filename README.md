@@ -15,16 +15,29 @@ ZPay is built using **Next.js** for both frontend and backend logic, with a **se
 - **Backend:** Next.js API Routes (serverless)  
 - **Database / Queue:** Upstash Redis (REST API + edge caching)  
 - **Hosting & CI/CD:** AWS Amplify  
-- **Zcash Integration:** `lightwalletd` or `zcashd` RPC  
+- **Zcash Integration:** `lightwalletd` or `zebrad` RPC  
 - **Solana Integration:** `@solana/web3.js` for wallet & transaction control  
 
 ### Environment Configuration
 - `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`
-- `ZCASH_RPC_URL`, `ZCASH_RPC_USERNAME`, `ZCASH_RPC_PASSWORD`
+- `ZCASH_RPC_URL`
+- `ZCASH_RPC_USERNAME`, `ZCASH_RPC_PASSWORD` (optional – basic auth for `zcashd`-style nodes)
+- `ZCASH_RPC_COOKIE_PATH` (optional – cookie auth for Zebra)
 - `FLASHIFT_API_KEY`, `FLASHIFT_API_BASE_URL`, `FLASHIFT_PROVIDER_NAME`
 - `SOLANA_RPC_URL`, `SOLANA_CUSTODIAL_PRIVATE_KEY`
 - `UPSTASH_KAFKA_REST_URL`, `UPSTASH_KAFKA_REST_USERNAME`, `UPSTASH_KAFKA_REST_PASSWORD`, `UPSTASH_KAFKA_TOPIC`
 - `MERCHANT_WEBHOOK_URL`, `MERCHANT_WEBHOOK_SECRET` (optional)
+
+### Running a Local Zebra Node
+The repository ships with a `docker-compose.yaml` that starts a `zfnd/zebra` container configured for public RPC access on `8232`. Run:
+
+```bash
+docker compose up zebra
+```
+
+The compose service exposes both RPC (`8232`) and P2P (`8233`) ports and persists chain data in a named Docker volume. Cookie authentication is disabled by default so the application can connect without credentials; supply `ZCASH_RPC_COOKIE_PATH` or re-enable cookie auth if you prefer Zebra's default security posture. Refer to the Zebra Docker guide for additional configuration options and feature flags.[^zebra-docker]
+
+[^zebra-docker]: [https://zebra.zfnd.org/user/docker.html](https://zebra.zfnd.org/user/docker.html)
 
 ---
 

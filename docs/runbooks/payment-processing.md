@@ -17,7 +17,7 @@
 
 ## Remediation Steps
 1. **Zcash Detection Failures**
-   - Validate `ZCASH_RPC_URL` and credentials.
+   - Validate `ZCASH_RPC_URL` and the configured authentication method (basic credentials or `ZCASH_RPC_COOKIE_PATH`).
    - Run manual RPC `z_listreceivedbyaddress` with session address.
    - If node lagging, failover to secondary endpoint and redeploy Amplify environment.
 2. **Flashift Execution Failures**

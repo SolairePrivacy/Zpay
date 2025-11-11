@@ -1,11 +1,18 @@
-version: '3'
+version: "3.8"
 services:
-  zcashd:
-    image: electriccoinco/zcashd:latest
-    container_name: zcash-node
+  zebra:
+    image: zfnd/zebra:latest
+    container_name: zebra-node
     restart: unless-stopped
     ports:
-      - "8232:8232"   # RPC
-      - "8233:8233"   # P2P
+      - "8232:8232" # RPC
+      - "8233:8233" # P2P
+    environment:
+      ZEBRA_NETWORK__NETWORK: Mainnet
+      ZEBRA_RPC__LISTEN_ADDR: 0.0.0.0:8232
+      ZEBRA_RPC__ENABLE_COOKIE_AUTH: "false"
     volumes:
-      - ./zcash_data:/srv/zcashd/.zcash
+      - zebra_cache:/home/zebra/.cache/zebra
+
+volumes:
+  zebra_cache:

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import axios from "axios";
 import { env } from "../env";
 import { logger } from "../logger";
@@ -28,17 +29,50 @@ async function rpcCall<T>(method: string, params: unknown[] = []): Promise<T> {
     params,
   };
 
+  const axiosConfig: {
+    auth?:
+      | {
+          username: string;
+          password: string;
+        }
+      | undefined;
+    timeout: number;
+  } = {
+    timeout: 15_000,
+  };
+
+  if (env.ZCASH_RPC_COOKIE_PATH) {
+    let rawCookie: string;
+    try {
+      rawCookie = await readFile(env.ZCASH_RPC_COOKIE_PATH, "utf8");
+    } catch (error) {
+      logger.error(
+        { err: error },
+        `Failed to read Zcash RPC cookie file at ${env.ZCASH_RPC_COOKIE_PATH}`
+      );
+      throw error;
+    }
+
+    const [username, password] = rawCookie.trim().split(":");
+    if (!username || !password) {
+      throw new Error(
+        `Invalid cookie format in ${env.ZCASH_RPC_COOKIE_PATH}. Expected "username:password".`
+      );
+    }
+
+    axiosConfig.auth = { username, password };
+  } else if (env.ZCASH_RPC_USERNAME && env.ZCASH_RPC_PASSWORD) {
+    axiosConfig.auth = {
+      username: env.ZCASH_RPC_USERNAME,
+      password: env.ZCASH_RPC_PASSWORD,
+    };
+  }
+
   try {
     const response = await axios.post<RpcResponse<T>>(
       env.ZCASH_RPC_URL,
       request,
-      {
-        auth: {
-          username: env.ZCASH_RPC_USERNAME,
-          password: env.ZCASH_RPC_PASSWORD,
-        },
-        timeout: 15_000,
-      }
+      axiosConfig
     );
 
     if (response.data.error) {
